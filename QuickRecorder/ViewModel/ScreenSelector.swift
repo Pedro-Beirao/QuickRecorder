@@ -16,8 +16,10 @@ struct ScreenSelector: View {
     @State private var timer = Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
     @State private var start = Date.now
     @State private var counter: Int?
-    @State private var isPopoverShowing = false
+    @State private var isStopAfterPopoverShowing = false
     @State private var autoStop = 0
+    @State private var isRecordLastPopoverShowing = false
+    @State private var replayBuffer = 0
     var appDelegate = AppDelegate.shared
     
     @AppStorage("frameRate")       private var frameRate: Int = 60
@@ -192,28 +194,52 @@ struct ScreenSelector: View {
                         }
                     }.padding(.leading, 18)
                     Spacer()
-                    Button(action: {
-                        isPopoverShowing = true
-                    }, label: {
-                        Image(systemName: "timer")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.blue)
-                    })
-                    .disabled(!(counter == nil))
-                    .buttonStyle(.plain)
-                    .padding(.top, 42.5)
-                    .popover(isPresented: $isPopoverShowing, arrowEdge: .bottom, content: {
-                        HStack {
-                            Text(" Stop after".local)
-                            TextField("", value: $autoStop, formatter: NumberFormatter())
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                            Stepper("", value: $autoStop)
-                                .padding(.leading, -10)
-                            Text("minutes ".local)
-                        }
-                        .fixedSize()
-                        .padding()
-                    })
+                    VStack{
+						Button(action: {
+							isStopAfterPopoverShowing = true
+						}, label: {
+							Image(systemName: "timer")
+								.font(.system(size: 11, weight: .bold))
+								.foregroundStyle(.blue)
+						})
+						.disabled(!(counter == nil))
+						.buttonStyle(.plain)
+						.padding(.top, 5)
+						.popover(isPresented: $isStopAfterPopoverShowing, arrowEdge: .top, content: {
+							HStack {
+								Text(" Stop after".local)
+								TextField("", value: $autoStop, formatter: NumberFormatter())
+									.textFieldStyle(RoundedBorderTextFieldStyle())
+								Stepper("", value: $autoStop)
+									.padding(.leading, -10)
+								Text("minutes ".local)
+							}
+							.fixedSize()
+							.padding()
+						})
+						Button(action: {
+							isRecordLastPopoverShowing = true
+						}, label: {
+							Image(systemName: "backward.end")
+								.font(.system(size: 11, weight: .bold))
+								.foregroundStyle(.blue)
+						})
+						.disabled(!(counter == nil))
+						.buttonStyle(.plain)
+						.padding(.top, 5)
+						.popover(isPresented: $isRecordLastPopoverShowing, arrowEdge: .bottom, content: {
+							HStack {
+								Text(" Record last".local)
+								TextField("", value: $autoStop, formatter: NumberFormatter())
+									.textFieldStyle(RoundedBorderTextFieldStyle())
+								Stepper("", value: $autoStop)
+									.padding(.leading, -10)
+								Text("minutes ".local)
+							}
+							.fixedSize()
+							.padding()
+						})
+					}
                     Button(action: {
                         if counter == 0 { startRecording() }
                         if counter != nil { counter = nil } else { counter = countdown; start = Date.now }
