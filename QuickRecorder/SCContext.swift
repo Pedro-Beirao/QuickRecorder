@@ -13,6 +13,7 @@ import UserNotifications
 
 class SCContext {
     static var autoStop = 0
+    static var replayBuffer: Double = 0
     static var recordCam = ""
     static var recordDevice = ""
     static var captureSession: AVCaptureSession!
@@ -22,6 +23,7 @@ class SCContext {
     static var audioSettings: [String : Any]!
     static var isMagnifierEnabled = false
     static var saveFrame = false
+    static var isStart = true
     static var isPaused = false
     static var isResume = false
     static var isSkipFrame = false
@@ -44,9 +46,11 @@ class SCContext {
     static var window: [SCWindow]?
     static var application: [SCRunningApplication]?
     static var streamType: StreamType?
+    static var currentStreamConfiguration: SCStreamConfiguration?
     //static var previewType: StreamType?
     static var availableContent: SCShareableContent?
     static let excludedApps = ["", "com.apple.dock", "com.apple.screencaptureui", "com.apple.controlcenter", "com.apple.notificationcenterui", "com.apple.systemuiserver", "com.apple.WindowManager", "dev.mnpn.Azayaka", "com.gaosun.eul", "com.pointum.hazeover", "net.matthewpalmer.Vanilla", "com.dwarvesv.minimalbar", "com.bjango.istatmenus.status"]
+    static let temporaryFolder = NSTemporaryDirectory() + "com.lihaoyun6.QuickRecorder/"
     
     static func updateAvailableContent(completion: @escaping () -> Void) {
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { content, error in
@@ -159,7 +163,15 @@ class SCContext {
     static func getFilePath(capture: Bool = false) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "y-MM-dd HH.mm.ss"
-        return ud.string(forKey: "saveDirectory")! + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
+        if replayBuffer != 0
+        {
+			try? FileManager.default.createDirectory(atPath: temporaryFolder, withIntermediateDirectories: true, attributes: nil)
+			return temporaryFolder + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
+		}
+        else
+        {
+			return ud.string(forKey: "saveDirectory")! + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
+		}
     }
     
     static func updateAudioSettings() {
@@ -285,6 +297,7 @@ class SCContext {
     static func stopRecording() {
         //statusBarItem.isVisible = false
         autoStop = 0
+        replayBuffer = 0
         recordCam = ""
         recordDevice = ""
         mousePointer.orderOut(nil)
@@ -367,6 +380,30 @@ class SCContext {
             }
         }
     }
+    
+    static func stopReplayBuffer()
+    {
+		startTime = nil
+        if streamType != .systemaudio {
+            let dispatchGroup = DispatchGroup()
+            dispatchGroup.enter()
+            vwInput.markAsFinished()
+            if #available(macOS 13, *) { awInput.markAsFinished() }
+            if ud.bool(forKey: "recordMic") {
+                micInput.markAsFinished()
+                audioEngine.inputNode.removeTap(onBus: 0)
+                audioEngine.stop()
+            }
+            vW.finishWriting {
+                if vW.status != .completed {
+                    print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
+                    showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
+                }
+                dispatchGroup.leave()
+            }
+            dispatchGroup.wait()
+        }
+	}
     
     static func getCameras() -> [AVCaptureDevice] {
         let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .externalUnknown], mediaType: .video, position: .unspecified)

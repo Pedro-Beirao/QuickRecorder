@@ -19,7 +19,7 @@ struct ScreenSelector: View {
     @State private var isStopAfterPopoverShowing = false
     @State private var autoStop = 0
     @State private var isRecordLastPopoverShowing = false
-    @State private var replayBuffer = 0
+    @State private var replayBuffer: Double = 0
     var appDelegate = AppDelegate.shared
     
     @AppStorage("frameRate")       private var frameRate: Int = 60
@@ -230,9 +230,9 @@ struct ScreenSelector: View {
 						.popover(isPresented: $isRecordLastPopoverShowing, arrowEdge: .bottom, content: {
 							HStack {
 								Text(" Record last".local)
-								TextField("", value: $autoStop, formatter: NumberFormatter())
+								TextField("", value: $replayBuffer, formatter: NumberFormatter())
 									.textFieldStyle(RoundedBorderTextFieldStyle())
-								Stepper("", value: $autoStop)
+								Stepper("", value: $replayBuffer)
 									.padding(.leading, -10)
 								Text("minutes ".local)
 							}
@@ -279,6 +279,7 @@ struct ScreenSelector: View {
         appDelegate.closeAllWindow()
         if let screen = selected {
             SCContext.autoStop = autoStop
+            SCContext.replayBuffer = replayBuffer
             appDelegate.prepRecord(type: "display", screens: screen, windows: nil, applications: nil)
         }
     }

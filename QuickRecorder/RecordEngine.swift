@@ -267,8 +267,21 @@ extension AppDelegate {
             }
             try! SCContext.audioEngine.start()
         }
-        SCContext.vW.startWriting()
+        
+		SCContext.isStart = true
+        
+        if SCContext.replayBuffer != 0
+        {
+			delay(seconds: 60, closure: {
+				SCContext.stopReplayBuffer()
+				self.initVideo(conf: conf)
+			})
+		}
     }
+    
+    func delay(seconds: TimeInterval, closure: @escaping () -> Void) {
+		DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: closure)
+	}
     
     func outputVideoEffectDidStart(for stream: SCStream) {
         DispatchQueue.main.async { camWindow.close() }
@@ -324,8 +337,10 @@ extension AppDelegate {
                   let status = SCFrameStatus(rawValue: statusRawValue),
                   status == .complete else { return }
             
-            if SCContext.vW != nil && SCContext.vW?.status == .writing, SCContext.startTime == nil {
+            if SCContext.isStart && SCContext.vW?.status != .writing && SCContext.startTime == nil {
+				SCContext.isStart = false
                 SCContext.startTime = Date.now
+                SCContext.vW.startWriting()
                 SCContext.vW.startSession(atSourceTime: CMSampleBufferGetPresentationTimeStamp(SampleBuffer))
             }
             if (SCContext.timeOffset.value > 0) { SampleBuffer = SCContext.adjustTime(sample: SampleBuffer, by: SCContext.timeOffset) ?? sampleBuffer }
@@ -333,7 +348,7 @@ extension AppDelegate {
             let dur = CMSampleBufferGetDuration(SampleBuffer)
             if (dur.value > 0) { pts = CMTimeAdd(pts, dur) }
             SCContext.lastPTS = pts
-            if SCContext.vwInput.isReadyForMoreMediaData {
+            if SCContext.vW?.status == .writing && SCContext.startTime != nil && SCContext.vwInput.isReadyForMoreMediaData {
                 if #available(macOS 14.2, *) {
                     if let rect = attachments[.presenterOverlayContentRect] as? [String: Any]{
                         var type = "np"
@@ -367,7 +382,7 @@ extension AppDelegate {
                 let dur = CMSampleBufferGetDuration(SampleBuffer)
                 if (dur.value > 0) { pts = CMTimeAdd(pts, dur) }
                 SCContext.lastPTS = pts
-                if SCContext.awInput.isReadyForMoreMediaData { SCContext.awInput.append(SampleBuffer) }
+                if SCContext.vW?.status == .writing && SCContext.startTime != nil && SCContext.awInput.isReadyForMoreMediaData { SCContext.awInput.append(SampleBuffer) }
             }
         @unknown default:
             assertionFailure("unknown stream type".local)
