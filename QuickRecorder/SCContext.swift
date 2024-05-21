@@ -51,6 +51,7 @@ class SCContext {
     static var availableContent: SCShareableContent?
     static let excludedApps = ["", "com.apple.dock", "com.apple.screencaptureui", "com.apple.controlcenter", "com.apple.notificationcenterui", "com.apple.systemuiserver", "com.apple.WindowManager", "dev.mnpn.Azayaka", "com.gaosun.eul", "com.pointum.hazeover", "net.matthewpalmer.Vanilla", "com.dwarvesv.minimalbar", "com.bjango.istatmenus.status"]
     static let temporaryFolder = NSTemporaryDirectory() + "com.lihaoyun6.QuickRecorder/"
+    static var replayBufferFiles: [URL] = []
     
     static func updateAvailableContent(completion: @escaping () -> Void) {
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { content, error in
@@ -160,10 +161,10 @@ class SCContext {
         }
     }*/
     
-    static func getFilePath(capture: Bool = false) -> String {
+    static func getFilePath(capture: Bool = false, temporary: Bool = false) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "y-MM-dd HH.mm.ss"
-        if replayBuffer != 0
+        if temporary
         {
 			try? FileManager.default.createDirectory(atPath: temporaryFolder, withIntermediateDirectories: true, attributes: nil)
 			return temporaryFolder + (capture ? "/Capturing at ".local : "/Recording at ".local) + dateFormatter.string(from: Date())
@@ -399,6 +400,10 @@ class SCContext {
                     print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
                     showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
                 }
+                else
+                {
+					replayBufferFiles.append(vW.outputURL)
+				}
                 dispatchGroup.leave()
             }
             dispatchGroup.wait()
@@ -443,6 +448,18 @@ class SCContext {
             if let error = error { print("Notification failed to send：\(error.localizedDescription)") }
         }
     }
+    
+    static func getFileType() -> AVFileType
+    {
+		let fileEnding = ud.string(forKey: "videoFormat") ?? ""
+        var fileType: AVFileType?
+        switch fileEnding {
+        case VideoFormat.mov.rawValue: fileType = AVFileType.mov
+        case VideoFormat.mp4.rawValue: fileType = AVFileType.mp4
+        default: assertionFailure("loaded unknown video format".local)
+        }
+        return fileType ?? .mp4
+	}
 
     static func mixAudioTracks(videoURL: URL, completion: @escaping (Result<URL, Error>) -> Void) {
         showNotification(title: "Still Processing".local, body: "Mixing audio track...".local, id: "quickrecorder.processing.\(Date.now)")
@@ -452,13 +469,7 @@ class SCContext {
         let outputURL = audioOutputURL.deletingPathExtension()
         let audioOnlyComposition = AVMutableComposition()
         
-        let fileEnding = ud.string(forKey: "videoFormat") ?? ""
-        var fileType: AVFileType?
-        switch fileEnding {
-        case VideoFormat.mov.rawValue: fileType = AVFileType.mov
-        case VideoFormat.mp4.rawValue: fileType = AVFileType.mp4
-        default: assertionFailure("loaded unknown video format".local)
-        }
+        let fileType = getFileType()
         
         let audioTracks = asset.tracks(withMediaType: .audio)
         guard audioTracks.count > 1 else {
@@ -489,7 +500,7 @@ class SCContext {
             return
         }
         audioExportSession.outputURL = audioOutputURL
-        audioExportSession.outputFileType = fileType ?? .mp4
+        audioExportSession.outputFileType = fileType
         audioExportSession.audioMix = audioMix
         
         
@@ -544,7 +555,7 @@ class SCContext {
                 }
                 
                 exportSession.outputURL = outputURL
-                exportSession.outputFileType = fileType ?? .mp4
+                exportSession.outputFileType = fileType
                 exportSession.audioMix = audioMix
                 
                 exportSession.exportAsynchronously {

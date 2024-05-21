@@ -100,7 +100,6 @@ class AVOutputClass: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVi
             guard let connection = output.connection(with: .video) else { return }
             output.setOutputSettings(videoSettings, for: connection)
             let fileEnding = ud.string(forKey: "videoFormat") ?? ""
-            SCContext.filePath = "\(SCContext.getFilePath()).\(fileEnding)"
             SCContext.captureSession.startRunning()
             output.startRecording(to: URL(fileURLWithPath: SCContext.filePath), recordingDelegate: self)
             SCContext.streamType = StreamType.idevice
