@@ -16,6 +16,65 @@ struct StatusBarItem: View {
     @AppStorage("saveDirectory") private var saveDirectory: String?
     @AppStorage("highlightMouse") private var highlightMouse: Bool = false
     
+    var recordingView: some View {
+		HStack(spacing: 4) {
+			Button(action: {
+				if SCContext.streamType == .idevice {
+					AVOutputClass.shared.stopRecording()
+				} else {
+					SCContext.stopRecording()
+				}
+			}, label: {
+				Image(systemName: "stop.circle.fill")
+					.font(.system(size: 16))
+					.foregroundStyle(.white)
+					.frame(width: 16, alignment: .center)
+			}).buttonStyle(.plain)
+			if SCContext.streamType != .idevice && SCContext.streamType != .systemaudio {
+				Button(action: {
+					SCContext.pauseRecording()
+					isPassed = SCContext.isPaused
+				}, label: {
+					Image(systemName: isPassed ? "play.circle.fill" : "pause.circle.fill")
+						.font(.system(size: 16))
+						.foregroundStyle(.white)
+						.frame(width: 16, alignment: .center)
+				}).buttonStyle(.plain)
+			}
+			Text(recordingLength)
+				.foregroundStyle(.white)
+				.font(.system(size: 15).monospaced())
+				.offset(x: 0.5)
+		}
+	}
+	
+	var replayBufferView: some View {
+		HStack(spacing: 4) {
+			if SCContext.streamType != .idevice && SCContext.streamType != .systemaudio {
+				Button(action: {
+					SCContext.pauseRecording()
+				}, label: {
+					Image(systemName: "rays")
+						.font(.system(size: 16))
+						.foregroundStyle(.white)
+						.frame(width: 16, alignment: .center)
+				}).buttonStyle(.plain)
+				Button(action: {
+					SCContext.pauseRecording()
+				}, label: {
+					Image(systemName: "trash.circle")
+						.font(.system(size: 16))
+						.foregroundStyle(.white)
+						.frame(width: 16, alignment: .center)
+				}).buttonStyle(.plain)
+			}
+			Text(String(Int(SCContext.replayBuffer))+"mins")
+				.foregroundStyle(.white)
+				.font(.system(size: 15).monospaced())
+				.offset(x: 0.5)
+		}
+	}
+    
     var body: some View {
         HStack(spacing: 0) {
             if SCContext.streamType != nil {
@@ -24,35 +83,8 @@ struct StatusBarItem: View {
                         .fill(Color.mypurple)
                         .shadow(color: .black.opacity(0.3), radius: 4)
                         .cornerRadius(4)
-                    HStack(spacing: 4) {
-                        Button(action: {
-                            if SCContext.streamType == .idevice {
-                                AVOutputClass.shared.stopRecording()
-                            } else {
-                                SCContext.stopRecording()
-                            }
-                        }, label: {
-                            Image(systemName: "stop.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.white)
-                                .frame(width: 16, alignment: .center)
-                        }).buttonStyle(.plain)
-                        if SCContext.streamType != .idevice && SCContext.streamType != .systemaudio {
-                            Button(action: {
-                                SCContext.pauseRecording()
-                                isPassed = SCContext.isPaused
-                            }, label: {
-                                Image(systemName: isPassed ? "play.circle.fill" : "pause.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 16, alignment: .center)
-                            }).buttonStyle(.plain)
-                        }
-                        Text(recordingLength)
-                            .foregroundStyle(.white)
-                            .font(.system(size: 15).monospaced())
-                            .offset(x: 0.5)
-                    }
+					if SCContext.replayBuffer == 0 { recordingView }
+					else { replayBufferView }
                 }
                 .frame(width: (SCContext.streamType == .idevice || SCContext.streamType == .systemaudio) ? 86 : 106)
                 .padding([.leading,.trailing], 4)
