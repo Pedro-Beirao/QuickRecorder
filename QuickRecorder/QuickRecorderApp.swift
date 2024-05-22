@@ -44,6 +44,10 @@ struct QuickRecorderApp: App {
         // If you want to start the updater manually, pass false to startingUpdater and call .startUpdater() later
         // This is where you can also pass an updater delegate if you need one
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        SCContext.clearTemporaryFolder()
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+			SCContext.clearTemporaryFolder()
+		}
     }
     
     var body: some Scene {

@@ -13,7 +13,7 @@ import UserNotifications
 
 class SCContext {
     static var autoStop = 0
-    static var replayBuffer: Double = 0
+    static var replayBuffer: Int = 0
     static var recordCam = ""
     static var recordDevice = ""
     static var captureSession: AVCaptureSession!
@@ -389,7 +389,7 @@ class SCContext {
         }
     }
     
-    static func stopReplayBuffer()
+    static func appendReplayBuffer()
     {
 		startTime = nil
         if streamType != .systemaudio {
@@ -408,6 +408,10 @@ class SCContext {
                     showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
                 }
                 else {
+					if replayBufferFiles.count > replayBuffer {
+						try? FileManager.default.removeItem(at: replayBufferFiles[0])
+						replayBufferFiles.removeFirst()
+					}
 					replayBufferFiles.append(vW.outputURL)
 				}
                 dispatchGroup.leave()
@@ -418,6 +422,8 @@ class SCContext {
 	
 	static func saveReplayBuffer() async
 	{
+		appendReplayBuffer()
+		//mostrar que buffer e diferent no delay
 		let composition = AVMutableComposition()
 		let videoTrack = composition.addMutableTrack(withMediaType: AVMediaType.video, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))
 		let audioTrack = composition.addMutableTrack(withMediaType: AVMediaType.audio, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))

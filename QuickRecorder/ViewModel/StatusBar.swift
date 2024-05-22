@@ -61,6 +61,7 @@ struct StatusBarItem: View {
 				}).buttonStyle(.plain)
 				Button(action: {
 					SCContext.stopRecording(save: false)
+					SCContext.clearTemporaryFolder()
 				}, label: {
 					Image(systemName: "trash.circle")
 						.font(.system(size: 16))

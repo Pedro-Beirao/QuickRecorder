@@ -275,8 +275,8 @@ extension AppDelegate {
         {
 			let currentBufferFiles = SCContext.replayBufferFiles.count
 			delay(seconds: 5, closure: {
-				if (currentBufferFiles != SCContext.replayBufferFiles.count) { return }
-				SCContext.stopReplayBuffer()
+				if (currentBufferFiles != SCContext.replayBufferFiles.count || SCContext.vW.status != .writing) { return }
+				SCContext.appendReplayBuffer()
 				self.initVideo(conf: conf)
 			})
 		}

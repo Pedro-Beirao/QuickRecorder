@@ -19,7 +19,7 @@ struct ScreenSelector: View {
     @State private var isStopAfterPopoverShowing = false
     @State private var autoStop = 0
     @State private var isRecordLastPopoverShowing = false
-    @State private var replayBuffer: Double = 0
+    @State private var replayBuffer: Int = 0
     var appDelegate = AppDelegate.shared
     
     @AppStorage("frameRate")       private var frameRate: Int = 60
