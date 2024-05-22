@@ -285,37 +285,6 @@ extension AppDelegate {
     func delay(seconds: TimeInterval, closure: @escaping () -> Void) {
 		DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: closure)
 	}
-	
-	func mergeReplayBuffer() async
-	{
-		let composition = AVMutableComposition()
-		let videoTrack = composition.addMutableTrack(withMediaType: AVMediaType.video, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))
-		let audioTrack = composition.addMutableTrack(withMediaType: AVMediaType.audio, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))
-		
-		do {
-			var currentLenght = CMTime.zero
-			for fileURL in SCContext.replayBufferFiles
-			{
-				let asset = AVAsset(url: fileURL)
-				print (currentLenght)
-				let d = try await asset.load(.duration)
-				try await videoTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: d), of: asset.loadTracks(withMediaType: .video)[0] as AVAssetTrack, at: currentLenght)
-				try await audioTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: d), of: asset.loadTracks(withMediaType: .audio)[0] as AVAssetTrack, at: currentLenght)
-				currentLenght = CMTime(seconds: currentLenght.seconds + d.seconds, preferredTimescale: 30)
-			}
-
-		} catch {
-			print("darn")
-			return
-		}
-
-		let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality)
-		let fileEnding = ud.string(forKey: "videoFormat") ?? ""
-		exporter?.outputURL = URL(fileURLWithPath: "\(SCContext.getFilePath()).\(fileEnding)")
-		exporter?.outputFileType = SCContext.getFileType()
-
-		await exporter?.export()
-	}
     
     func outputVideoEffectDidStart(for stream: SCStream) {
         DispatchQueue.main.async { camWindow.close() }

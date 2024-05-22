@@ -295,7 +295,7 @@ class SCContext {
         }
     }
     
-    static func stopRecording() {
+    static func stopRecording(save: Bool = true) {
         //statusBarItem.isVisible = false
         autoStop = 0
         replayBuffer = 0
@@ -319,31 +319,38 @@ class SCContext {
                 audioEngine.inputNode.removeTap(onBus: 0)
                 audioEngine.stop()
             }
-            vW.finishWriting {
-                startTime = nil
-                if vW.status != .completed {
-                    print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
-                    showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
-                } else {
-                    if ud.bool(forKey: "recordMic") && ud.bool(forKey: "recordWinSound") && ud.bool(forKey: "remuxAudio") {
-                        mixAudioTracks(videoURL: URL(fileURLWithPath: filePath)) { result in
-                            switch result {
-                            case .success(let url):
-                                print("Exported video to \(String(describing: url.path))")
-                                showNotification(title: "Recording Completed".local, body: String(format: "File saved to: %@".local, url.path), id: "quickrecorder.completed.\(Date.now)")
-                                if ud.bool(forKey: "trimAfterRecord") {
-                                    DispatchQueue.main.async {
-                                        AppDelegate.shared.createNewWindow(view: VideoTrimmerView(videoURL: url), title: url.lastPathComponent)
-                                    }
-                                }
-                            case .failure(let error):
-                                print("Failed to export video: \(error.localizedDescription)")
-                            }
-                        }
-                    }
-                }
-                dispatchGroup.leave()
-            }
+            if save {
+				vW.finishWriting {
+					startTime = nil
+					if vW.status != .completed {
+						print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
+						showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
+					} else {
+						if ud.bool(forKey: "recordMic") && ud.bool(forKey: "recordWinSound") && ud.bool(forKey: "remuxAudio") {
+							mixAudioTracks(videoURL: URL(fileURLWithPath: filePath)) { result in
+								switch result {
+								case .success(let url):
+									print("Exported video to \(String(describing: url.path))")
+									showNotification(title: "Recording Completed".local, body: String(format: "File saved to: %@".local, url.path), id: "quickrecorder.completed.\(Date.now)")
+									if ud.bool(forKey: "trimAfterRecord") {
+										DispatchQueue.main.async {
+											AppDelegate.shared.createNewWindow(view: VideoTrimmerView(videoURL: url), title: url.lastPathComponent)
+										}
+									}
+								case .failure(let error):
+									print("Failed to export video: \(error.localizedDescription)")
+								}
+							}
+						}
+					}
+					dispatchGroup.leave()
+				}
+			}
+			else {
+				vW.cancelWriting()
+				startTime = nil
+				dispatchGroup.leave()
+			}
             dispatchGroup.wait()
         }
         
@@ -400,14 +407,54 @@ class SCContext {
                     print("Video writing failed with status: \(vW.status), error: \(String(describing: vW.error))")
                     showNotification(title: "Failed to save file".local, body: "\(String(describing: vW.error?.localizedDescription))", id: "quickrecorder.error.\(Date.now)")
                 }
-                else
-                {
+                else {
 					replayBufferFiles.append(vW.outputURL)
 				}
                 dispatchGroup.leave()
             }
             dispatchGroup.wait()
         }
+	}
+	
+	static func saveReplayBuffer() async
+	{
+		let composition = AVMutableComposition()
+		let videoTrack = composition.addMutableTrack(withMediaType: AVMediaType.video, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))
+		let audioTrack = composition.addMutableTrack(withMediaType: AVMediaType.audio, preferredTrackID:Int32(kCMPersistentTrackID_Invalid))
+		
+		do {
+			var currentLenght = CMTime.zero
+			for fileURL in replayBufferFiles
+			{
+				let asset = AVAsset(url: fileURL)
+				print (currentLenght)
+				let d = try await asset.load(.duration)
+				try await videoTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: d), of: asset.loadTracks(withMediaType: .video)[0] as AVAssetTrack, at: currentLenght)
+				try await audioTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: d), of: asset.loadTracks(withMediaType: .audio)[0] as AVAssetTrack, at: currentLenght)
+				currentLenght = CMTime(seconds: currentLenght.seconds + d.seconds, preferredTimescale: 30)
+			}
+
+		} catch {
+			print(error)
+			return
+		}
+
+		let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality)
+		let fileEnding = ud.string(forKey: "videoFormat") ?? ""
+		exporter?.outputURL = URL(fileURLWithPath: "\(getFilePath()).\(fileEnding)")
+		exporter?.outputFileType = getFileType()
+
+		await exporter?.export()
+	}
+	
+	static func clearTemporaryFolder()
+	{
+		do {
+			let fileURLs = try FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: temporaryFolder), includingPropertiesForKeys: nil)
+			for fileURL in fileURLs {
+				try FileManager.default.removeItem(at: fileURL)
+			}
+		} catch  { print(error) }
 	}
     
     static func getCameras() -> [AVCaptureDevice] {

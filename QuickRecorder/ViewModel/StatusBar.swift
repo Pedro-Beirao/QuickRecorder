@@ -52,15 +52,15 @@ struct StatusBarItem: View {
 		HStack(spacing: 4) {
 			if SCContext.streamType != .idevice && SCContext.streamType != .systemaudio {
 				Button(action: {
-					SCContext.pauseRecording()
+					Task { await SCContext.saveReplayBuffer() }
 				}, label: {
-					Image(systemName: "rays")
+					Image(systemName: "camera.metering.spot")
 						.font(.system(size: 16))
 						.foregroundStyle(.white)
 						.frame(width: 16, alignment: .center)
 				}).buttonStyle(.plain)
 				Button(action: {
-					SCContext.pauseRecording()
+					SCContext.stopRecording(save: false)
 				}, label: {
 					Image(systemName: "trash.circle")
 						.font(.system(size: 16))
